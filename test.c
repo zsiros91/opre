@@ -9,6 +9,7 @@
 #include <sys/ipc.h> 
 #include <sys/msg.h> 
 #include <string.h>
+#include <wait.h> 
 
 int c=0;
 
@@ -17,19 +18,30 @@ struct uzenet {
      char mtext [ 1024 ]; 
 };
 
-int kuld( int uzenetsor );
-int fogad( int uzenetsor );
+int kuld( int uzenetsor, char* msg );
+char* fogad( int uzenetsor );
 
 void handler(int signumber){
    c++;
    printf("Signal with number %i has arrived %dX\n\n",signumber,c);
 }
-	int main(){
+int main(int argc, char* argv[]){
+
+	int uzenetsor, status; 
+	key_t kulcs;
+	kulcs = ftok(argv[0],1); 
+	printf ("A kulcs: %d\n",kulcs);
+	uzenetsor = msgget( kulcs, 0600 | IPC_CREAT ); 
+	if ( uzenetsor < 0 ) { 
+	  perror("msgget"); 
+	  return 1; 
+	} 
+
 	signal(SIGTERM, handler);
 
 	int pipe1[2];
-
 	pipe(pipe1);
+
 	pid_t child1=fork();
 	if (child1<0){perror("The fork calling was not succesful\n\n"); exit(1);}
 	if (child1>0){
@@ -75,9 +87,9 @@ void handler(int signumber){
  
 
 // sendig a message
-int kuld( int uzenetsor ) 
+int kuld( int uzenetsor, char* msg) 
 { 
-     const struct uzenet uz = { 5, "Hajra Fradi!" }; 
+     const struct uzenet uz = { 5, msg }; 
      int status; 
      
      status = msgsnd( uzenetsor, &uz, strlen ( uz.mtext ) + 1 , 0 ); 
@@ -89,7 +101,7 @@ int kuld( int uzenetsor )
 } 
      
 // receiving a message. 
-int fogad( int uzenetsor ) 
+char* fogad( int uzenetsor ) 
 { 
      struct uzenet uz; 
      int status; 
@@ -98,10 +110,10 @@ int fogad( int uzenetsor )
 	// ha >0 (5), akkor az 5-os uzenetekbol a kovetkezot
 	// vesszuk ki a sorbol 
      status = msgrcv(uzenetsor, &uz, 1024, 5, 0 ); 
-     
+     char* retval =  uz.mtext;
      if ( status < 0 ) 
           perror("msgsnd"); 
      else
           printf( "A kapott uzenet kodja: %ld, szovege:  %s\n", uz.mtype, uz.mtext ); 
-     return 0; 
+	return retval;
 } 
