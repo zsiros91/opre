@@ -6,96 +6,102 @@
 #include <errno.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <sys/ipc.h> 
+#include <sys/msg.h> 
+#include <string.h>
 
 int c=0;
+
+struct uzenet { 
+     long mtype;//ez egy szabadon hasznalhato ertek, pl uzenetek osztalyozasara
+     char mtext [ 1024 ]; 
+};
+
+int kuld( int uzenetsor );
+int fogad( int uzenetsor );
 
 void handler(int signumber){
    c++;
    printf("Signal with number %i has arrived %dX\n\n",signumber,c);
 }
+	int main(){
+	signal(SIGTERM, handler);
 
-int main(){
-signal(SIGUSR1, handler);
+	int pipe1[2];
 
-int pipe1[2];
-int pipe2[2];
-int pipe3[2];
+	pipe(pipe1);
+	pid_t child1=fork();
+	if (child1<0){perror("The fork calling was not succesful\n\n"); exit(1);}
+	if (child1>0){
+	    int status;
+            int i=0;
+            
+            while(i<3){
+            	pause();
+            	int s=i+1;
+            	
+	            write(pipe1[1], &s,(int)sizeof(int));
 
-pipe(pipe1);
-pipe(pipe2);
-pipe(pipe3);
+	            sleep(1);
+	            printf("parent sent %d\n",s);
+	            ++i;
+	            kill(child1,SIGTERM);
+            }
+        	close(pipe1[1]);
+            close(pipe1[0]);
+			sleep(2);
+            waitpid(child1,&status,0);
+            printf("parent: End of parent!\n\n");
 
-pid_t child3;
-pid_t child2;
-pid_t child1=fork();
-if (child1<0){perror("The fork calling was not succesful\n\n"); exit(1);}
-if (child1>0){
-    child2=fork();
-    if(child2>0){
-            child3=fork();
-            if(child3>0){ //parent process
-                int status;
-
-                close(pipe1[0]);
-                write(pipe1[1], "msg1",6);
-                close(pipe1[1]);
-
-                close(pipe2[0]);
-                write(pipe2[1], "msg2",6);
-                close(pipe2[1]);
-
-                close(pipe3[0]);
-                write(pipe3[1], "msg3",6);
-                close(pipe3[1]);
-
-                while(c<3){
-                	
-                }
-				sleep(2);
-                
-                printf("parent: pid: %d\n\n",getpid());
-
-                waitpid(child3,&status,0);
-                waitpid(child2,&status,0);
-                waitpid(child1,&status,0);
-                //wait(&status);
-                printf("parent: End of parent!\n\n");
-            }else{ //child3 process
-				char p3[10];
-				close(pipe3[1]);
-				read(pipe3[0],p3,sizeof(p3));
-				close(pipe3[0]);
-				printf("child3: read from pipe3 %s\n\n", p3);
-
-                printf("child3: pid: %d ppid: %d\n\n",getpid(),getppid());
-                kill(getppid(),SIGUSR1);
-
-                printf("child3: read from pipe3\n\n);
-
-    		}
-		}else{ //child2 process
-			char p2[10];
-			close(pipe2[1]);
-			read(pipe2[0],p2,sizeof(p2));
-			close(pipe2[0]);
-			printf("child2: read from pipe2 %s\n\n", p2);
-
-			printf("child2: pid: %d ppid: %d\n\n",getpid(),getppid());
-			//kill(child1,SIGUSR1);
-			//printf("Send signal to child1:%d...\n",child1);
-			kill(getppid(),SIGUSR1);
-		}
 	}else{ //child1 process
-		//pause();
-		//printf("Signal recieved from child2...\n");
-		char p1[10];
-		close(pipe1[1]);
-		read(pipe1[0],p1,sizeof(p1));
-		close(pipe1[0]);
-		printf("child1: read from pipe1 %s\n\n", p1);
 		
-		printf("child1: pid: %d ppid: %d\n\n",getpid(),getppid());
-		kill(getppid(),SIGUSR1);
+		int i=0;
+		int r;
+		kill(getppid(),SIGTERM);
+		while(i<3){
+			pause();
+			read(pipe1[0],&r,(int)sizeof(int));
+			printf("child receivied %d\n", r);
+			sleep(1);
+			++i;
+			kill(getppid(),SIGTERM);
+		}
+		close(pipe1[1]);
+		close(pipe1[0]);
+		
 	}
 	return 0;
 }
+ 
+
+// sendig a message
+int kuld( int uzenetsor ) 
+{ 
+     const struct uzenet uz = { 5, "Hajra Fradi!" }; 
+     int status; 
+     
+     status = msgsnd( uzenetsor, &uz, strlen ( uz.mtext ) + 1 , 0 ); 
+	// a 3. param ilyen is lehet: sizeof(uz.mtext)
+     	// a 4. parameter gyakran IPC_NOWAIT, ez a 0-val azonos
+     if ( status < 0 ) 
+          perror("msgsnd"); 
+     return 0; 
+} 
+     
+// receiving a message. 
+int fogad( int uzenetsor ) 
+{ 
+     struct uzenet uz; 
+     int status; 
+     // az utolso parameter(0) az uzenet azonositoszama
+	// ha az 0, akkor a sor elso uzenetet vesszuk ki
+	// ha >0 (5), akkor az 5-os uzenetekbol a kovetkezot
+	// vesszuk ki a sorbol 
+     status = msgrcv(uzenetsor, &uz, 1024, 5, 0 ); 
+     
+     if ( status < 0 ) 
+          perror("msgsnd"); 
+     else
+          printf( "A kapott uzenet kodja: %ld, szovege:  %s\n", uz.mtype, uz.mtext ); 
+     return 0; 
+} 
