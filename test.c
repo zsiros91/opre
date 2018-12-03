@@ -14,8 +14,8 @@
 int c=0;
 
 struct uzenet { 
-     long mtype;//ez egy szabadon hasznalhato ertek, pl uzenetek osztalyozasara
-     char mtext [ 1024 ]; 
+	long mtype;
+	char mtext [ 1024 ]; 
 };
 
 int kuld( int uzenetsor, char* msg );
@@ -33,9 +33,9 @@ int main(int argc, char* argv[]){
 	printf ("A kulcs: %d\n",kulcs);
 	uzenetsor = msgget( kulcs, 0600 | IPC_CREAT ); 
 	if ( uzenetsor < 0 ) { 
-	  perror("msgget"); 
-	  return 1; 
-	} 
+		perror("msgget"); 
+		return 1; 
+	}
 
 	signal(SIGTERM, handler);
 
@@ -46,27 +46,28 @@ int main(int argc, char* argv[]){
 	if (child1<0){perror("The fork calling was not succesful\n\n"); exit(1);}
 	if (child1>0){
 	    int status;
-            int i=0;
-            
-            while(i<3){
-            	pause();
-            	int s=i+1;
-            	
-	            write(pipe1[1], &s,(int)sizeof(int));
+        int i=0;
+        
+        while(i<3){
+        	pause();
+        	int s=i+1;
+        	
+            write(pipe1[1], &s,(int)sizeof(int));
 
-	            sleep(1);
-	            printf("parent sent %d\n",s);
-	            ++i;
-	            kill(child1,SIGTERM);
-            }
-        	close(pipe1[1]);
-            close(pipe1[0]);
-			sleep(2);
-            waitpid(child1,&status,0);
-            printf("parent: End of parent!\n\n");
+            sleep(1);
+            printf("parent sent %d\n",s);
+            ++i;
+            kill(child1,SIGTERM);
+        }
+    	close(pipe1[1]);
+        close(pipe1[0]);
+		sleep(2);
+
+		printf("%s\n",fogad(uzenetsor));
+        waitpid(child1,&status,0);
+        printf("parent: End of parent!\n\n");
 
 	}else{ //child1 process
-		
 		int i=0;
 		int r;
 		kill(getppid(),SIGTERM);
@@ -78,42 +79,36 @@ int main(int argc, char* argv[]){
 			++i;
 			kill(getppid(),SIGTERM);
 		}
+
+		kuld(uzenetsor, "test1");
 		close(pipe1[1]);
 		close(pipe1[0]);
 		
 	}
 	return 0;
 }
- 
 
 // sendig a message
 int kuld( int uzenetsor, char* msg) 
 { 
-     const struct uzenet uz = { 5, msg }; 
-     int status; 
-     
-     status = msgsnd( uzenetsor, &uz, strlen ( uz.mtext ) + 1 , 0 ); 
-	// a 3. param ilyen is lehet: sizeof(uz.mtext)
-     	// a 4. parameter gyakran IPC_NOWAIT, ez a 0-val azonos
-     if ( status < 0 ) 
-          perror("msgsnd"); 
-     return 0; 
+	const struct uzenet uz = { 5, msg }; 
+	int status; 
+	status = msgsnd( uzenetsor, &uz, sizeof( uz.mtext ), 0 ); 
+	if ( status < 0 ) 
+		perror("msgsnd"); 
+	return 0; 
 } 
      
 // receiving a message. 
 char* fogad( int uzenetsor ) 
 { 
-     struct uzenet uz; 
-     int status; 
-     // az utolso parameter(0) az uzenet azonositoszama
-	// ha az 0, akkor a sor elso uzenetet vesszuk ki
-	// ha >0 (5), akkor az 5-os uzenetekbol a kovetkezot
-	// vesszuk ki a sorbol 
-     status = msgrcv(uzenetsor, &uz, 1024, 5, 0 ); 
-     char* retval =  uz.mtext;
-     if ( status < 0 ) 
-          perror("msgsnd"); 
-     else
-          printf( "A kapott uzenet kodja: %ld, szovege:  %s\n", uz.mtype, uz.mtext ); 
+	struct uzenet uz; 
+	int status; 
+	status = msgrcv(uzenetsor, &uz, 1024, 5, 0 ); 
+	char* retval =  uz.mtext;
+	if ( status < 0 ) 
+		perror("msgsnd"); 
+	else
+		printf( "A kapott uzenet kodja: %ld, szovege:  %s\n", uz.mtype, uz.mtext ); 
 	return retval;
 } 

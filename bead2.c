@@ -1,228 +1,117 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/select.h>
+#include <unistd.h>  //fork
+#include <sys/wait.h> //waitpid
+#include <signal.h>
 #include <errno.h>
-#include <time.h>
-#include <string.h>
+#include <signal.h>
+#include <sys/types.h>
 
-typedef struct Order {
-  int id;
-  char date [20];
-  char name [20];
-  char email [20];
-  int tel;
-  int performance;
-} ORD ;
+int c=0;
+int flag=0;
 
-void menu();
-void help();
-void list();
-void search();
-void delete();
-void add_element();
-void modify_element();
-char* get_time();
-int get_order_num();
-void copy_file(const char *,const char *);
+void handler(int signumber){
+   c++;
+   //printf("Signal with number %i has arrived %dX\n\n",signumber,c);
+}
 
-void clear(){system("@cls||clear");}
-//void clear(){system("clear");}
+int generate_rand(int f, int e);
+
 int main(){
-  menu();
+signal(SIGUSR1, handler);
+
+int pipe1[2];
+int pipe2[2];
+
+pipe(pipe1);
+pipe(pipe2);
+
+int pipe1b[2];
+int pipe2b[2];
+
+pipe(pipe1b);
+pipe(pipe2b);
+
+pid_t child2;
+pid_t child1=fork();
+if (child1<0){perror("The fork calling was not succesful\n\n"); exit(1);}
+if (child1>0){
+    child2=fork();
+    if(child2>0){
+      int status;
+
+      close(pipe1[0]);
+      write(pipe1[1], "task1",6);
+      close(pipe1[1]);
+      kill(child1, SIGUSR1);
+      printf("parent: task sent to child1!\n\n");
+      sleep(2);
+
+      close(pipe2[0]);
+      write(pipe2[1], "task2",6);
+      close(pipe2[1]);
+      kill(child2, SIGUSR1);
+      printf("parent: task sent to child2!\n\n");
+      
+      char b1[20];
+      close(pipe1b[1]);
+      read(pipe1b[0],b1,sizeof(b1));
+      close(pipe1b[0]);
+      printf("parent: child1: %s\n\n",b1 );
+      sleep(2);
+      
+      char b2[20];
+      close(pipe2b[1]);
+      read(pipe2b[0],b2,sizeof(b2));
+      close(pipe2b[0]);
+      printf("parent: child2: %s\n\n",b2 );
+      sleep(2);
+      
+      
+      waitpid(child1,&status,0);
+      waitpid(child2,&status,0);
+      
+      printf("parent: End of parent! All orders delivere\n\n");    
+        
+    }else{ //child2 process
+      pause();
+      char p2[10];
+      close(pipe2[1]);
+      read(pipe2[0],p2,sizeof(p2));
+      close(pipe2[0]);
+      printf("child2: task have been read from pipe2 %s\n\n", p2);
+      sleep(2);
+
+      close(pipe2b[0]);
+      write(pipe2b[1], "Copy that!",20);
+      close(pipe2b[1]);
+      sleep(2);
+
+      kill(getppid(),SIGUSR1);
+      printf("child2: final task resolved!\n\n\n");
+      
+    }
+  }else{ //child1 process
+    pause();
+    char p1[10];
+    close(pipe1[1]);
+    read(pipe1[0],p1,sizeof(p1));
+    close(pipe1[0]);
+    printf("child1: task have been read from pipe1 %s\n\n", p1);
+    sleep(2);
+
+    close(pipe1b[0]);
+    write(pipe1b[1], "Copy that!",20);
+    close(pipe1b[1]);
+    sleep(2);
+    
+    printf("child1: final task resolved!\n\n");
+    kill(getppid(),SIGUSR1);
+  }
   return 0;
 }
 
-void wait_for_press(){
-  printf("\nPress any button for return to the menu...\n");
-  getchar();
-}
-
-void menu(){
-  help();
-  char c;
-  do{
-    scanf("%c", &c);
-    clear();
-    help();
-    switch(c){
-      case '1': list(); break;
-      case '2': search(); break;
-      case '3': add_element(); break;
-      case '4': modify_element(); break;
-      case '5': delete(); break;
-    }
-  }while(c!='q');
-}
-
-void help(){
-  char help [] = "Choose menu point:\n1)\tList\n2)\tSearch\n3)\tAdd new order\n4)\tModify order\n5)\tDelete order\nq)\tQuit\nh)\tHelp\n";
-  printf("%s",help);
-}
-
-char* get_time(){
-  char* retval = malloc(17);
-  time_t ttime = time(NULL);
-  struct tm *ptm = localtime(&ttime);
-  sprintf(retval, "%02d.%02d.%02d_%02d:%02d", ptm->tm_mday, ptm->tm_mon, ptm->tm_year + 1900, ptm->tm_hour, 
-         ptm->tm_min);
-  return retval;
-}
-
-void add_element(){
-  clear();
-  FILE *f = fopen("t.txt","a+");
-
-  int id;
-  int date;
-  char name [20];
-  char email [20];
-  int tel;
-  int performance;
-
-  printf("Please provide details of order!\n");
-  printf("Name:\n");
-  scanf("%s",name);
-  printf("E-mail:\n");
-  scanf("%s",email);
-  printf("Tel:\n");
-  scanf("%d",&tel);
-  printf("Performance:\n");
-  scanf("%d",&performance);
-
-  fprintf(f, "%s %s %d %d %s\n", name, email, tel, performance, get_time());
-  fclose(f);
-}
-
-void list(){
-  clear();
-
-  FILE *f = fopen("t.txt","r");
-  char buff[512];
-  printf("List of orders:\n");
-  while(fgets(buff,100,f) != NULL){
-    printf("%s",buff);
-  }
-  wait_for_press();
-}
-
-void search(){
-  clear();
-
-  FILE *f = fopen("t.txt","r");
-  int id;
-  int date;
-  char name [20];
-  char email [20];
-  char odate [20];
-  int tel;
-  int performance;
-  char buff[512];
-  char sname[20];
-
-  printf("Provide name for search!\n");
-  scanf("%s",&sname);
-  printf("Search results for %s:\n",sname);
-
-  while(fgets(buff,100,f) != NULL){
-    sscanf(buff,"%s", name);
-    if(strcmp(name,sname) == 0){
-      printf("%s", buff);
-    }
-  }
-  wait_for_press();
-}
-
-void delete(){
-  FILE *t = fopen("t.txt","r");
-  FILE *tmp = fopen("tmp.txt","wb");
-  
-  char name [20];
-  char buff[512];
-  char sname[20];
-
-  printf("Provide name for delete!\n");
-  scanf("%s",sname);
-  while(fgets(buff,sizeof(buff),t) != NULL){
-    sscanf(buff,"%s ", name);
-    if(strcmp(name,sname) != 0){
-      fputs(buff,tmp);
-    }
-  }
-  fclose(t);
-  fclose(tmp);
-  copy_file("tmp.txt","t.txt");
-  wait_for_press();
-}
-
-void modify_element (){
-  FILE *t = fopen("t.txt","r");
-  FILE *tmp = fopen("tmp.txt","wb");
-  
-  int date;
-  char name [20];
-  char email [20];
-  int tel;
-  int performance;
-  char buff[512];
-  char sname[20];
-
-  printf("Provide name for detail modification!\n");
-  scanf("%s",sname);
-  while(fgets(buff,sizeof(buff),t) != NULL){
-    sscanf(buff,"%s ", name);
-    if(strcmp(name,sname) != 0){
-      fputs(buff,tmp);
-    }
-  }
-
-  printf("Please provide new details of order!\n");
-  printf("Name:\n");
-  scanf("%s",name);
-  printf("E-mail:\n");
-  scanf("%s",email);
-  printf("Tel:\n");
-  scanf("%d",&tel);
-  printf("Performance:\n");
-  scanf("%d",&performance);
-
-  fprintf(tmp, "%s %s %d %d %s\n", name, email, tel, performance, get_time());
-
-  fclose(t);
-  fclose(tmp);
-  copy_file("tmp.txt","t.txt");
-  wait_for_press();
-}
-
-void copy_file(const char *source,const char *target){
-  FILE *tmp = fopen(source,"r");
-  FILE *t = fopen(target,"w");
-
-  char name [20];
-  char email [20];
-  char odate [20];
-  char buff [200];
-  int tel;
-  int performance;
-  while(fgets(buff,sizeof(buff),tmp) != NULL)
-  {
-    sscanf(buff,"%s %s %d %d %s",name,email,&tel,&performance,odate);
-    fprintf(t,"%s %s %d %d %s\n",name,email,tel,performance,odate);
-    //fputs(buff, t);
-  }
-  
-  fclose(tmp);
-  fclose(t);
-  
-  remove("tmp.txt");
-}
-
-int get_order_num(){
-  FILE *f = fopen("t.txt","r");
-  char c; 
-  int i = 0;
-  while ((c = fgetc(f)) != EOF){
-    if (c == '\n') ++i;
-  }
-  printf("%d\n",i);
-  return i;
+int generate_rand(int f, int e){ 
+  srand(time(NULL));
+  return (rand()%(e-f)+f);
 }
