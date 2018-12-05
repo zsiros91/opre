@@ -18,8 +18,8 @@ struct uzenet {
 	char mtext [ 1024 ]; 
 };
 
-int kuld( int uzenetsor, char* msg );
-char* fogad( int uzenetsor );
+int kuld( int uzenetsor,char* str);
+char* fogad( int uzenetsor);
 
 void handler(int signumber){
    c++;
@@ -80,7 +80,9 @@ int main(int argc, char* argv[]){
 			kill(getppid(),SIGTERM);
 		}
 
-		kuld(uzenetsor, "test1");
+		char* buff="asd";
+		kuld(uzenetsor,buff);
+
 		close(pipe1[1]);
 		close(pipe1[0]);
 		
@@ -89,14 +91,18 @@ int main(int argc, char* argv[]){
 }
 
 // sendig a message
-int kuld( int uzenetsor, char* msg) 
+int kuld( int uzenetsor,char* str ) 
 { 
-	const struct uzenet uz = { 5, msg }; 
-	int status; 
-	status = msgsnd( uzenetsor, &uz, sizeof( uz.mtext ), 0 ); 
-	if ( status < 0 ) 
-		perror("msgsnd"); 
-	return 0; 
+     struct uzenet uz = { 5, "" }; 
+     strcpy(uz.mtext,str);
+     int status; 
+     
+     status = msgsnd( uzenetsor, &uz, strlen ( uz.mtext ) + 1 , 0 ); 
+	// a 3. param ilyen is lehet: sizeof(uz.mtext)
+     	// a 4. parameter gyakran IPC_NOWAIT, ez a 0-val azonos
+     if ( status < 0 ) 
+          perror("msgsnd"); 
+     return 0; 
 } 
      
 // receiving a message. 
@@ -109,6 +115,6 @@ char* fogad( int uzenetsor )
 	if ( status < 0 ) 
 		perror("msgsnd"); 
 	else
-		printf( "A kapott uzenet kodja: %ld, szovege:  %s\n", uz.mtype, uz.mtext ); 
+		printf( "A kapott uzenet kodja: %ld, szovege: %s\n", uz.mtype, uz.mtext ); 
 	return retval;
 } 

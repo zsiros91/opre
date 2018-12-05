@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <time.h>
 
 int c=0;
 int flag=0;
@@ -71,10 +72,10 @@ if (child1>0){
       waitpid(child1,&status,0);
       waitpid(child2,&status,0);
       
-      printf("parent: End of parent! All orders delivere\n\n");    
+      printf("parent: End of parent! All orders delivered!\n\n");    
         
     }else{ //child2 process
-      pause();
+      
       char p2[10];
       close(pipe2[1]);
       read(pipe2[0],p2,sizeof(p2));
@@ -92,7 +93,7 @@ if (child1>0){
       
     }
   }else{ //child1 process
-    pause();
+    
     char p1[10];
     close(pipe1[1]);
     read(pipe1[0],p1,sizeof(p1));

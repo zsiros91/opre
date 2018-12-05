@@ -40,18 +40,21 @@ if (child1>0){
                 close(pipe1[0]);
                 write(pipe1[1], "msg1",6);
                 close(pipe1[1]);
+                sleep(3);
 
                 close(pipe2[0]);
                 write(pipe2[1], "msg2",6);
                 close(pipe2[1]);
+                sleep(3);
 
                 close(pipe3[0]);
                 write(pipe3[1], "msg3",6);
                 close(pipe3[1]);
+                sleep(3);
 
                 
                 while(c<3){
-                	sleep(1);
+                	sleep(2);
                 }
 				sleep(2);
                 
@@ -61,41 +64,41 @@ if (child1>0){
                 waitpid(child3,&status,0);
                 waitpid(child2,&status,0);
                 
-                //wait(&status);
                 printf("parent: End of parent!\n\n");
             }else{ //child3 process
+				
 				char p3[10];
-
 				close(pipe3[1]);
 				read(pipe3[0],p3,sizeof(p3));
 				close(pipe3[0]);
-				printf("child3: read from pipe3 %s\n\n", p3);
-
-                printf("child3: pid: %d ppid: %d\n\n",getpid(),getppid());
+				sleep(1);
+				printf("child3: read from pipe3 %s\n\n", p3);                
                 kill(getppid(),SIGUSR1);
     		}
 		}else{ //child2 process
+			
 			char p2[10];
 			close(pipe2[1]);
 			read(pipe2[0],p2,sizeof(p2));
 			close(pipe2[0]);
+			sleep(1);
 			printf("child2: read from pipe2 %s\n\n", p2);
-
-			printf("child2: pid: %d ppid: %d\n\n",getpid(),getppid());
 			//kill(child1,SIGUSR1);
 			//printf("Send signal to child1:%d...\n",child1);
+			
 			kill(getppid(),SIGUSR1);
 		}
 	}else{ //child1 process
 		//pause();
 		//printf("Signal recieved from child2...\n");
+		
 		char p1[10];
 		close(pipe1[1]);
 		read(pipe1[0],p1,sizeof(p1));
 		close(pipe1[0]);
+		sleep(1);
 		printf("child1: read from pipe1 %s\n\n", p1);
-		
-		printf("child1: pid: %d ppid: %d\n\n",getpid(),getppid());
+
 		kill(getppid(),SIGUSR1);
 	}
 	return 0;

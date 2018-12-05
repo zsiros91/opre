@@ -11,6 +11,7 @@
 #include <sys/shm.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 
 int c=0;
 int flag=0;
@@ -27,7 +28,6 @@ int main(int argc,char* argv[]){
 
   key_t kulcs;
   int oszt_mem_id;
-
   char *s;
   kulcs=ftok("kulcs",1);
   oszt_mem_id=shmget(kulcs,500,IPC_CREAT|S_IRUSR|S_IWUSR);
@@ -45,11 +45,12 @@ int main(int argc,char* argv[]){
       char buffer[] = "Hajra Fradi! \n";                   
        
       strcpy(s,buffer);
-      
-      shmdt(s);     
       pause();
-      sleep(5);
- 
+      printf("parent: Read from shm: %s\n\n",s);
+      shmdt(s);     
+      
+      sleep(2);
+      
       shmctl(oszt_mem_id,IPC_RMID,NULL);
       
       waitpid(child1,&status,0);
@@ -57,17 +58,22 @@ int main(int argc,char* argv[]){
       printf("parent: End of parent!\n\n");    
         
     }else{ //child2 process
-      printf("child2: Read from sh: %s\n\n",s);
-      shmdt(s);
-      kill(getppid(),SIGUSR1);
+      printf("child2: Read from shm: %s\n\n",s);
+      
+//      shmctl(oszt_mem_id,IPC_RMID,NULL);
+      //kill(getppid(),SIGUSR1);
       printf("child2: End of child2!\n\n");
       
     }
   }else{ //child1 process
+    printf("child1: Read from shm: %s\n\n",s);
     
-    
+    char buffer[] = "Hajra UTE! \n";
+    strcpy(s,buffer);
+    kill(getppid(),SIGUSR1);
+
     //kill(getppid(),SIGUSR1);
-    //printf("child1: End of child1!\n\n\n");
+    printf("child1: End of child1!\n\n");
   }
   return 0;
 }
